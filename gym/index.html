@@ -544,6 +544,8 @@ function workoutView() {
     h("h2", null, "Pesas"),
     h("span", { class: "muted small" }, `${active.exercises.length} ejercicios · ${totalSets} sets · ${fmtInt(sessVolume(active))} kg`)));
 
+  out.push(compareCard());
+
   if (active.bike) out.push(h("button", { class: "exrow", onclick: () => go("bike") },
     h("span", { class: "ex-ic", svg: svgIcon(`<circle cx="13" cy="33" r="7"/><circle cx="35" cy="33" r="7"/><polyline points="13,33 20,20 31,20 35,33"/><polyline points="20,20 24,33 31,20"/><line x1="18" y1="16" x2="23" y2="16"/><polyline points="31,20 30,14 34,14"/>`) }),
     h("div", { class: "t" }, h("div", null, "Bicicleta"), h("div", { class: "muted small" }, `${mmss(bikeSecs(active.bike))} · ${fmtKg(active.bike.km)} km · ${active.bike.kcal} kcal · nivel ${active.bike.level}`)),
@@ -567,6 +569,31 @@ function workoutView() {
   return out;
 }
 
+function prevSession() {
+  const ss = sortedSessions().filter(s => s.id !== active.id);
+  return ss[ss.length - 1] || null;
+}
+function compareCard() {
+  const prev = prevSession();
+  const volNow = sessVolume(active);
+  const kcalNow = (active.bike?.kcal || 0) + weightsKcal(weightsMinutes(active), settings.bodyWeight);
+  const card = h("div", { class: "card" }, h("h3", null, prev ? `Hoy vs sesión anterior (${fmtShort(prev.startedAt)})` : "Hoy"));
+  const bar = (now, before) => {
+    const pct = before ? Math.min(100, (now / before) * 100) : 0;
+    return h("div", { style: "height:8px;border-radius:4px;background:var(--soft);overflow:hidden" },
+      h("div", { style: `height:100%;width:${pct.toFixed(1)}%;background:${now >= before && before ? "var(--good)" : "var(--accent)"}` }));
+  };
+  const line = (label, now, before, unit, fmt) => h("div", { class: "section", style: "gap:4px" },
+    h("div", { class: "row between" }, h("span", { class: "small muted" }, label),
+      h("span", null, h("span", { class: "num", style: "font-size:22px" }, fmt(now)), h("span", { class: "muted small" }, before ? ` / ${fmt(before)} ${unit}` : ` ${unit}`))),
+    before ? bar(now, before) : null,
+    before ? h("div", { class: "hint" }, now >= before ? `Superaste la sesión anterior por ${fmt(now - before)} ${unit}` : `Te faltan ${fmt(before - now)} ${unit} para igualarla`) : null);
+  const prevKcal = prev ? (prev.bike?.kcal || 0) + weightsKcal(weightsMinutes(prev), prev.bodyWeight || settings.bodyWeight) : 0;
+  card.append(line("Volumen (peso × reps)", volNow, prev ? sessVolume(prev) : 0, "kg", fmtInt),
+    line("Calorías aprox. (bici + pesas)", kcalNow, prevKcal, "kcal", fmtInt));
+  return card;
+}
+
 function exerciseCard(ex) {
   const def = exDef(ex);
   const st = exStats(ex.exId);
@@ -588,6 +615,7 @@ function exerciseCard(ex) {
     card.append(h("div", { class: "small" },
       h("div", null, h("span", { class: "muted" }, `La última vez (${fmtShort(st.last.date)}): `), setsLine(st.last.ex)),
       h("div", null, h("span", { class: "muted" }, "Récord: "), bw ? `${st.maxReps} reps` : `${fmtKg(st.maxKg)} kg` + (st.max1 ? ` · 1RM est. ≈ ${fmtKg(st.max1)} kg` : ""))));
+    card.append(h("div", { class: "small" }, h("span", { class: "muted" }, "Volumen: "), h("b", null, `${fmtInt(exVolume(ex))} kg hoy`), h("span", { class: "muted" }, ` / ${fmtInt(exVolume(st.last.ex))} kg la última vez`)));
   } else card.append(h("div", { class: "small muted" }, "Primera vez que registras este ejercicio."));
 
   if (ex.sets.length) {
