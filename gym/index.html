@@ -642,15 +642,24 @@ function exerciseCard(ex) {
     if (ex.equip === "barra") hint.textContent = `${fmtKg(w)} kg en discos + ${fmtKg(settings.barWeight)} kg de barra = ${fmtKg(w + settings.barWeight)} kg`;
     else if (ex.equip === "mancuerna") hint.textContent = mode === "mano" ? `${fmtKg(w)} kg por mano = ${fmtKg(w * 2)} kg en total` : `${fmtKg(w)} kg en total`;
     else hint.textContent = w ? `Con ${fmtKg(w)} kg extra` : "Solo peso corporal; puedes anotar peso extra si usas.";
+    if (typeof syncHalf === "function") syncHalf();
   };
   wInput.addEventListener("input", updHint);
   const seg = ex.equip === "mancuerna" ? h("div", { class: "seg", role: "group", "aria-label": "Cómo se cuenta el peso" },
     ...[["total", "Total"], ["mano", "Por mano"]].map(([k, t]) => h("button", { "aria-pressed": String(mode === k), onclick: e => { mode = k; ex.mode = k; e.currentTarget.parentNode.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b === e.currentTarget))); updHint(); } }, t))) : null;
   const wLabel = ex.equip === "barra" ? "Discos (kg, sin barra)" : ex.equip === "mancuerna" ? "Mancuerna (kg)" : "Peso extra (kg)";
   card.append(h("div", { class: "grid2" },
-    h("label", { for: "inW" }, wLabel, h("div", { class: "stepper" }, h("button", { class: "iconbtn", "aria-label": "Menos peso", onclick: step(wInput, ex.equip === "barra" ? -2.5 : -1) }, "−"), wInput, h("button", { class: "iconbtn", "aria-label": "Más peso", onclick: step(wInput, ex.equip === "barra" ? 2.5 : 1) }, "+"))),
+    h("label", { for: "inW" }, wLabel, h("div", { class: "stepper" }, h("button", { class: "iconbtn", "aria-label": "Menos peso", onclick: step(wInput, -1) }, "−"), wInput, h("button", { class: "iconbtn", "aria-label": "Más peso", onclick: step(wInput, 1) }, "+"))),
     h("label", { for: "inR" }, "Reps", h("div", { class: "stepper" }, h("button", { class: "iconbtn", "aria-label": "Menos reps", onclick: step(rInput, -1, 1) }, "−"), rInput, h("button", { class: "iconbtn", "aria-label": "Más reps", onclick: step(rInput, 1) }, "+")))));
-  if (seg) card.append(h("div", { class: "row between" }, seg));
+  const halfBtn = h("button", { class: "chip", "aria-pressed": "false", onclick: () => {
+    const w = num(wInput.value) || 0;
+    const hasHalf = Math.abs(w - Math.floor(w) - 0.5) < 0.01;
+    wInput.value = hasHalf ? Math.floor(w) : Math.floor(w) + 0.5;
+    updHint();
+  } }, "+ 0,5 kg");
+  const syncHalf = () => { const w = num(wInput.value) || 0; const on = Math.abs(w - Math.floor(w) - 0.5) < 0.01; halfBtn.setAttribute("aria-pressed", String(on)); halfBtn.textContent = on ? "Quitar 0,5 kg" : "+ 0,5 kg"; };
+  wInput.addEventListener("input", syncHalf);
+  if (seg || ex.equip !== "corporal") card.append(h("div", { class: "row between" }, seg || h("span"), ex.equip !== "corporal" ? halfBtn : null));
   card.append(hint);
   updHint();
   card.append(h("button", { class: "btn primary big", onclick: () => {
